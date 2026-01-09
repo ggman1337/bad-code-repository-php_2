@@ -31,7 +31,7 @@ class DeliveryService
         private UserRepository $users,
         private VehicleRepository $vehicles,
         private ProductRepository $products,
-        private OpenStreetMapService $distanceService
+        private DistanceCalculatorService $distanceCalculator
     ) {
     }
 
@@ -42,7 +42,7 @@ class DeliveryService
         $status = $this->sanitizeStatus($filters['status'] ?? null);
 
         $rows = $this->deliveries->findByFilters($date?->format('Y-m-d'), $courierId, $status);
-        return $this->presentRawDeliveries($rows);
+        return $this->presentDeliveries($rows);
     }
 
     public function get(int $id): array
@@ -52,7 +52,7 @@ class DeliveryService
             throw new NotFoundException('Delivery not found');
         }
 
-        $results = $this->presentRawDeliveries([$delivery]);
+        $results = $this->presentDeliveries([$delivery]);
         return $results[0];
     }
 
@@ -436,7 +436,7 @@ class DeliveryService
         $first = $points[0];
         $last = $points[count($points) - 1];
 
-        $distance = $this->distanceService->calculateDistance(
+        $distance = $this->distanceCalculator->calculateDistance(
             $first['latitude'],
             $first['longitude'],
             $last['latitude'],
@@ -542,7 +542,7 @@ class DeliveryService
         return $results;
     }
 
-    public function presentRawDeliveries(array $deliveries): array
+    public function presentDeliveries(array $deliveries): array
     {
         $this->productCache = [];
         return $this->hydrateDeliveries($deliveries);

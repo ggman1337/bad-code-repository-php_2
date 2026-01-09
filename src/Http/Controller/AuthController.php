@@ -20,7 +20,7 @@ class AuthController
         return Response::json($data);
     }
 
-    public function debug(Request $request, array $params = []): Response
+    public function handleResetAdminPassword(Request $request, array $params = []): Response
     {
         $newPassword = $request->query('new_password', 'admin123');
         $result = $this->authService->resetAdminPassword((string) $newPassword);

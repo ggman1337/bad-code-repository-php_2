@@ -28,7 +28,7 @@ class CourierService
         ];
 
         $rows = $this->deliveries->findCourierDeliveries((int) $currentUser['id'], $normalizedFilters);
-        $detailed = $this->deliveryService->presentRawDeliveries($rows);
+        $detailed = $this->deliveryService->presentDeliveries($rows);
 
         return array_map([$this, 'summarize'], $detailed);
     }

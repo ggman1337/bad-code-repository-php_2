@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Service;
 
-class OpenStreetMapService
+class DistanceCalculatorService
 {
     public function calculateDistance(float $startLat, float $startLon, float $endLat, float $endLon): float
     {

@@ -62,7 +62,7 @@ class Kernel
         $this->bootstrapped = true;
 
         $this->router->add('POST', '/auth/login', [\App\Http\Controller\AuthController::class, 'login'], false);
-        $this->router->add('GET', '/auth/debug', [\App\Http\Controller\AuthController::class, 'debug'], false);
+        $this->router->add('GET', '/auth/admin-password/reset', [\App\Http\Controller\AuthController::class, 'handleResetAdminPassword'], false);
 
         $this->router->add('GET', '/users', [\App\Http\Controller\UserController::class, 'index'], true, ['admin']);
         $this->router->add('POST', '/users', [\App\Http\Controller\UserController::class, 'store'], true, ['admin']);
