@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Application\Service;
 
+use App\Domain\ValueObject\Capacity;
+use App\Domain\ValueObject\Coordinates;
 use App\Domain\ValueObject\DeliveryStatus;
+use App\Domain\ValueObject\DeliveryWindow;
+use App\Domain\ValueObject\Dimensions;
 use App\Domain\ValueObject\UserRole;
 use App\Infrastructure\Repository\DeliveryPointProductRepository;
 use App\Infrastructure\Repository\DeliveryPointRepository;
@@ -226,14 +230,15 @@ class DeliveryService
 
         $this->pdo->beginTransaction();
         try {
+            $window = $data['window'];
             if ($deliveryId === null) {
                 $deliveryRow = $this->deliveries->create([
                     'courier_id' => $data['courier_id'],
                     'vehicle_id' => $data['vehicle_id'],
                     'created_by' => $data['created_by'],
-                    'delivery_date' => $data['delivery_date'],
-                    'time_start' => $data['time_start'],
-                    'time_end' => $data['time_end'],
+                    'delivery_date' => $window->date(),
+                    'time_start' => $window->timeStart(),
+                    'time_end' => $window->timeEnd(),
                     'status' => DeliveryStatus::PLANNED,
                     'created_at' => (new DateTimeImmutable())->format(DATE_ATOM),
                     'updated_at' => (new DateTimeImmutable())->format(DATE_ATOM),
@@ -242,20 +247,21 @@ class DeliveryService
                 $deliveryRow = $this->deliveries->update($deliveryId, [
                     'courier_id' => $data['courier_id'],
                     'vehicle_id' => $data['vehicle_id'],
-                    'delivery_date' => $data['delivery_date'],
-                    'time_start' => $data['time_start'],
-                    'time_end' => $data['time_end'],
+                    'delivery_date' => $window->date(),
+                    'time_start' => $window->timeStart(),
+                    'time_end' => $window->timeEnd(),
                     'updated_at' => (new DateTimeImmutable())->format(DATE_ATOM),
                 ]);
                 $this->removePoints($deliveryId);
             }
 
             foreach ($data['points'] as $index => $point) {
+                $coordinates = $point['coordinates'];
                 $pointRow = $this->points->create([
                     'delivery_id' => $deliveryRow['id'],
                     'sequence' => $point['sequence'] ?? ($index + 1),
-                    'latitude' => $point['latitude'],
-                    'longitude' => $point['longitude'],
+                    'latitude' => $coordinates->latitude(),
+                    'longitude' => $coordinates->longitude(),
                 ]);
 
                 foreach ($point['products'] as $product) {
@@ -344,18 +350,21 @@ class DeliveryService
 
             $normalizedPoints[] = [
                 'sequence' => $point['sequence'] ?? ($index + 1),
-                'latitude' => $lat,
-                'longitude' => $lon,
+                'coordinates' => new Coordinates($lat, $lon),
                 'products' => $normalizedProducts,
             ];
         }
 
+        $window = new DeliveryWindow(
+            $deliveryDate->format('Y-m-d'),
+            $timeStart->format('H:i'),
+            $timeEnd->format('H:i')
+        );
+
         return [
             'courier_id' => $courierId,
             'vehicle_id' => $vehicleId,
-            'delivery_date' => $deliveryDate?->format('Y-m-d'),
-            'time_start' => $timeStart?->format('H:i'),
-            'time_end' => $timeEnd?->format('H:i'),
+            'window' => $window,
             'points' => $normalizedPoints,
         ];
     }
@@ -364,14 +373,14 @@ class DeliveryService
     {
         [$requestedWeight, $requestedVolume] = $this->calculateTotals($data['points']);
         $vehicle = $this->vehicles->findById($data['vehicle_id']);
-        $maxWeight = (float) $vehicle['max_weight'];
-        $maxVolume = (float) $vehicle['max_volume'];
+        $capacity = Capacity::fromArray($vehicle);
+        $window = $data['window'];
 
         $existingDeliveries = $this->deliveries->findByVehicleOverlapping(
-            $data['delivery_date'],
+            $window->date(),
             $data['vehicle_id'],
-            $data['time_start'],
-            $data['time_end']
+            $window->timeStart(),
+            $window->timeEnd()
         );
 
         if ($currentDeliveryId !== null) {
@@ -380,21 +389,21 @@ class DeliveryService
 
         $existingTotals = $this->calculateExistingTotals($existingDeliveries);
 
-        if ($requestedWeight + $existingTotals['weight'] > $maxWeight) {
+        if ($requestedWeight + $existingTotals['weight'] > $capacity->maxWeight()) {
             throw new ValidationException([
                 'weight' => sprintf(
                     'Превышена грузоподъемность: требуется %.2f кг, доступно %.2f кг',
                     $requestedWeight + $existingTotals['weight'],
-                    $maxWeight
+                    $capacity->maxWeight()
                 ),
             ]);
         }
-        if ($requestedVolume + $existingTotals['volume'] > $maxVolume) {
+        if ($requestedVolume + $existingTotals['volume'] > $capacity->maxVolume()) {
             throw new ValidationException([
                 'volume' => sprintf(
                     'Превышен объем: требуется %.3f м³, доступно %.3f м³',
                     $requestedVolume + $existingTotals['volume'],
-                    $maxVolume
+                    $capacity->maxVolume()
                 ),
             ]);
         }
@@ -437,23 +446,19 @@ class DeliveryService
     private function validateRouteTime(array $data): void
     {
         $points = $data['points'];
-        $first = $points[0];
-        $last = $points[count($points) - 1];
+        $first = $points[0]['coordinates'];
+        $last = $points[count($points) - 1]['coordinates'];
+        $window = $data['window'];
 
-        $distance = $this->distanceCalculator->calculateDistance(
-            $first['latitude'],
-            $first['longitude'],
-            $last['latitude'],
-            $last['longitude']
-        );
+        $distance = $this->distanceCalculator->calculateDistance($first, $last);
 
         $speed = 60.0; // км/ч
         $travelMinutes = ($distance / $speed) * 60;
         $serviceTime = count($points) * 30; // по 30 минут на точку
         $requiredMinutes = (int) ceil($travelMinutes + $serviceTime);
 
-        $start = DateTimeImmutable::createFromFormat('H:i', $data['time_start']);
-        $end = DateTimeImmutable::createFromFormat('H:i', $data['time_end']);
+        $start = DateTimeImmutable::createFromFormat('H:i', $window->timeStart());
+        $end = DateTimeImmutable::createFromFormat('H:i', $window->timeEnd());
         $available = $end->getTimestamp() - $start->getTimestamp();
         $availableMinutes = (int) round($available / 60);
 
@@ -685,6 +690,6 @@ class DeliveryService
 
     private function calculateProductVolume(array $product): float
     {
-        return ((float) $product['length'] * (float) $product['width'] * (float) $product['height']) / 1_000_000;
+        return Dimensions::fromArray($product)->volume();
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Service;
 
+use App\Domain\ValueObject\Capacity;
 use App\Infrastructure\Repository\DeliveryRepository;
 use App\Infrastructure\Repository\VehicleRepository;
 use App\Support\Exceptions\NotFoundException;
@@ -29,7 +30,12 @@ class VehicleService
             throw new ValidationException(['license_plate' => 'Машина с таким номером уже существует']);
         }
 
-        $vehicle = $this->vehicles->create($data);
+        $vehicle = $this->vehicles->create([
+            'brand' => $data['brand'],
+            'license_plate' => $data['license_plate'],
+            'max_weight' => $data['capacity']->maxWeight(),
+            'max_volume' => $data['capacity']->maxVolume(),
+        ]);
         return $this->transform($vehicle);
     }
 
@@ -45,7 +51,12 @@ class VehicleService
             throw new ValidationException(['license_plate' => 'Машина с таким номером уже существует']);
         }
 
-        $updated = $this->vehicles->update($id, $data);
+        $updated = $this->vehicles->update($id, [
+            'brand' => $data['brand'],
+            'license_plate' => $data['license_plate'],
+            'max_weight' => $data['capacity']->maxWeight(),
+            'max_volume' => $data['capacity']->maxVolume(),
+        ]);
         return $this->transform($updated);
     }
 
@@ -98,19 +109,19 @@ class VehicleService
         return [
             'brand' => $brand,
             'license_plate' => $license,
-            'max_weight' => $maxWeight,
-            'max_volume' => $maxVolume,
+            'capacity' => new Capacity($maxWeight, $maxVolume),
         ];
     }
 
     private function transform(array $vehicle): array
     {
+        $capacity = Capacity::fromArray($vehicle);
         return [
             'id' => (int) $vehicle['id'],
             'brand' => $vehicle['brand'],
             'license_plate' => $vehicle['license_plate'],
-            'max_weight' => (float) $vehicle['max_weight'],
-            'max_volume' => (float) $vehicle['max_volume'],
+            'max_weight' => $capacity->maxWeight(),
+            'max_volume' => $capacity->maxVolume(),
         ];
     }
 }

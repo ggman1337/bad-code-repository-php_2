@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Service;
 
+use App\Domain\ValueObject\Dimensions;
 use App\Infrastructure\Repository\DeliveryRepository;
 use App\Infrastructure\Repository\ProductRepository;
 use App\Support\Exceptions\NotFoundException;
@@ -25,7 +26,13 @@ class ProductService
     public function create(array $payload): array
     {
         $data = $this->validatePayload($payload);
-        $product = $this->products->create($data);
+        $product = $this->products->create([
+            'name' => $data['name'],
+            'weight' => $data['weight'],
+            'length' => $data['dimensions']->length(),
+            'width' => $data['dimensions']->width(),
+            'height' => $data['dimensions']->height(),
+        ]);
         return $this->transform($product);
     }
 
@@ -37,7 +44,13 @@ class ProductService
         }
 
         $data = $this->validatePayload($payload);
-        $updated = $this->products->update($id, $data);
+        $updated = $this->products->update($id, [
+            'name' => $data['name'],
+            'weight' => $data['weight'],
+            'length' => $data['dimensions']->length(),
+            'width' => $data['dimensions']->width(),
+            'height' => $data['dimensions']->height(),
+        ]);
         return $this->transform($updated);
     }
 
@@ -89,15 +102,13 @@ class ProductService
         return [
             'name' => $name,
             'weight' => $weight,
-            'length' => $length,
-            'width' => $width,
-            'height' => $height,
+            'dimensions' => new Dimensions($length, $width, $height),
         ];
     }
 
     private function transform(array $product): array
     {
-        $volume = (float) $product['length'] * (float) $product['width'] * (float) $product['height'] / 1_000_000;
+        $volume = Dimensions::fromArray($product)->volume();
         return [
             'id' => (int) $product['id'],
             'name' => $product['name'],

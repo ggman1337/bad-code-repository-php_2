@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Service;
 
+use App\Domain\ValueObject\Coordinates;
 use App\Support\Exceptions\ValidationException;
 use DateTimeImmutable;
 
@@ -23,10 +24,8 @@ class RouteService
         $distance = 0.0;
         for ($i = 0; $i < count($points) - 1; $i++) {
             $distance += $this->distanceCalculator->calculateDistance(
-                (float) ($points[$i]['latitude'] ?? 0),
-                (float) ($points[$i]['longitude'] ?? 0),
-                (float) ($points[$i + 1]['latitude'] ?? 0),
-                (float) ($points[$i + 1]['longitude'] ?? 0)
+                Coordinates::fromArray($points[$i]),
+                Coordinates::fromArray($points[$i + 1])
             );
         }
 
