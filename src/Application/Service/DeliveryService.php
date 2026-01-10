@@ -41,7 +41,11 @@ class DeliveryService
         $courierId = isset($filters['courier_id']) ? (int) $filters['courier_id'] : null;
         $status = $this->sanitizeStatus($filters['status'] ?? null);
 
-        $rows = $this->deliveries->findByFilters($date?->format('Y-m-d'), $courierId, $status);
+        $rows = $this->deliveries->findByFilters([
+            'date' => $date?->format('Y-m-d'),
+            'courier_id' => $courierId,
+            'status' => $status,
+        ]);
         return $this->presentDeliveries($rows);
     }
 

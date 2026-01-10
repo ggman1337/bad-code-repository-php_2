@@ -79,20 +79,6 @@ class UserRepository
         $stmt->execute(['id' => $id]);
     }
 
-    public function findCouriers(): array
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE role = 'courier' ORDER BY id");
-        $stmt->execute();
-        return $stmt->fetchAll() ?: [];
-    }
-
-    public function findManagers(): array
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE role = 'manager' ORDER BY id");
-        $stmt->execute();
-        return $stmt->fetchAll() ?: [];
-    }
-
     public function findManyByIds(array $ids): array
     {
         if (empty($ids)) {

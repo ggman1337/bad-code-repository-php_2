@@ -137,7 +137,7 @@ class UserService
             throw new NotFoundException('User not found');
         }
 
-        $deliveries = $this->deliveries->findByFilters(null, $id, null);
+        $deliveries = $this->deliveries->findByFilters(['courier_id' => $id]);
         $hasActive = array_filter($deliveries, function (array $delivery): bool {
             return in_array($delivery['status'], ['planned', 'in_progress'], true);
         });

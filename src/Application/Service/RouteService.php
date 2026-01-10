@@ -9,6 +9,10 @@ use DateTimeImmutable;
 
 class RouteService
 {
+    public function __construct(private DistanceCalculatorService $distanceCalculator)
+    {
+    }
+
     public function calculate(array $payload): array
     {
         $points = $payload['points'] ?? [];
@@ -18,7 +22,12 @@ class RouteService
 
         $distance = 0.0;
         for ($i = 0; $i < count($points) - 1; $i++) {
-            $distance += $this->distanceBetween($points[$i], $points[$i + 1]);
+            $distance += $this->distanceCalculator->calculateDistance(
+                (float) ($points[$i]['latitude'] ?? 0),
+                (float) ($points[$i]['longitude'] ?? 0),
+                (float) ($points[$i + 1]['latitude'] ?? 0),
+                (float) ($points[$i + 1]['longitude'] ?? 0)
+            );
         }
 
         $averageSpeed = 30.0;
@@ -41,21 +50,4 @@ class RouteService
         ];
     }
 
-    private function distanceBetween(array $a, array $b): float
-    {
-        $lat1 = (float) ($a['latitude'] ?? 0);
-        $lon1 = (float) ($a['longitude'] ?? 0);
-        $lat2 = (float) ($b['latitude'] ?? 0);
-        $lon2 = (float) ($b['longitude'] ?? 0);
-
-        $earthRadius = 6371;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $lat1Rad = deg2rad($lat1);
-        $lat2Rad = deg2rad($lat2);
-
-        $a = sin($dLat / 2) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon / 2) ** 2;
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-        return $earthRadius * $c;
-    }
 }

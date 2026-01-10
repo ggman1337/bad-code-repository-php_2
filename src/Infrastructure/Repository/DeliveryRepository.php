@@ -31,21 +31,26 @@ class DeliveryRepository
         return $stmt->fetchAll() ?: [];
     }
 
-    public function findByFilters(?string $date, ?int $courierId, ?string $status): array
+    public function findByFilters(array $filters): array
     {
         $clauses = [];
         $params = [];
-        if ($date) {
+        if (!empty($filters['date'])) {
             $clauses[] = 'delivery_date = :date';
-            $params['date'] = $date;
+            $params['date'] = $filters['date'];
         }
-        if ($courierId) {
+        if (!empty($filters['courier_id'])) {
             $clauses[] = 'courier_id = :courier_id';
-            $params['courier_id'] = $courierId;
+            $params['courier_id'] = $filters['courier_id'];
         }
-        if ($status) {
+        if (!empty($filters['status'])) {
             $clauses[] = 'status = :status';
-            $params['status'] = $status;
+            $params['status'] = $filters['status'];
+        }
+        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+            $clauses[] = 'delivery_date BETWEEN :date_from AND :date_to';
+            $params['date_from'] = $filters['date_from'];
+            $params['date_to'] = $filters['date_to'];
         }
 
         $sql = 'SELECT * FROM deliveries';
@@ -59,31 +64,6 @@ class DeliveryRepository
         return $stmt->fetchAll() ?: [];
     }
 
-    public function findCourierDeliveries(int $courierId, array $filters): array
-    {
-        $clauses = ['courier_id = :courier_id'];
-        $params = ['courier_id' => $courierId];
-
-        if (!empty($filters['date'])) {
-            $clauses[] = 'delivery_date = :date';
-            $params['date'] = $filters['date'];
-        }
-        if (!empty($filters['status'])) {
-            $clauses[] = 'status = :status';
-            $params['status'] = $filters['status'];
-        }
-        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
-            $clauses[] = 'delivery_date BETWEEN :date_from AND :date_to';
-            $params['date_from'] = $filters['date_from'];
-            $params['date_to'] = $filters['date_to'];
-        }
-
-        $sql = 'SELECT * FROM deliveries WHERE ' . implode(' AND ', $clauses) . ' ORDER BY delivery_date, time_start';
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll() ?: [];
-    }
 
     public function create(array $data): array
     {

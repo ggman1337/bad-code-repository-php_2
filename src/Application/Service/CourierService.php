@@ -27,7 +27,13 @@ class CourierService
             'date_to' => $this->parseDate($filters['date_to'] ?? null),
         ];
 
-        $rows = $this->deliveries->findCourierDeliveries((int) $currentUser['id'], $normalizedFilters);
+        $rows = $this->deliveries->findByFilters([
+            'courier_id' => (int) $currentUser['id'],
+            'date' => $normalizedFilters['date'],
+            'status' => $normalizedFilters['status'],
+            'date_from' => $normalizedFilters['date_from'],
+            'date_to' => $normalizedFilters['date_to'],
+        ]);
         $detailed = $this->deliveryService->presentDeliveries($rows);
 
         return array_map([$this, 'summarize'], $detailed);
